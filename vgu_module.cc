@@ -18,71 +18,8 @@
  *
  */
 
-#define PY_SSIZE_T_CLEAN
-
-#include <Python.h>
-#include <stddef.h>
-
 #include "openvg_module.h"
 #include "vgu.h"
-
-#if PY_VERSION_HEX < 0x020400F0
-
-#define PyEval_ThreadsInitialized() 1
-
-#define Py_CLEAR(op)				\
-        do {                            	\
-                if (op) {			\
-                        PyObject *tmp = (PyObject *)(op);	\
-                        (op) = NULL;		\
-                        Py_DECREF(tmp);		\
-                }				\
-        } while (0)
-
-
-#define Py_VISIT(op)							\
-        do { 								\
-                if (op) {						\
-                        int vret = visit((PyObject *)(op), arg);	\
-                        if (vret)					\
-                                return vret;				\
-                }							\
-        } while (0)
-
-#endif
-
-
-
-#if PY_VERSION_HEX < 0x020500F0
-
-typedef int Py_ssize_t;
-# define PY_SSIZE_T_MAX INT_MAX
-# define PY_SSIZE_T_MIN INT_MIN
-typedef inquiry lenfunc;
-typedef intargfunc ssizeargfunc;
-typedef intobjargproc ssizeobjargproc;
-
-#endif
-
-
-#ifndef PyVarObject_HEAD_INIT
-#define PyVarObject_HEAD_INIT(type, size) \
-        PyObject_HEAD_INIT(type) size,
-#endif
-
-
-#if PY_VERSION_HEX >= 0x03000000
-typedef void* cmpfunc;
-#endif
-
-
-#if     __GNUC__ > 2
-# define UNUSED(param) param __attribute__((__unused__))
-#elif     __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)
-# define UNUSED(param) __attribute__((__unused__)) param
-#else
-# define UNUSED(param) param
-#endif  /* !__GNUC__ */
 
 /* --- module functions --- */
 
@@ -442,17 +379,13 @@ static struct PyModuleDef VGU_moduledef = {
 };
 #endif
 
-static PyMethodDef VGU_VGUArcType_functions[] = {
-    {NULL, NULL, 0, NULL}
-};
-
 #if PY_VERSION_HEX >= 0x03000000
 static struct PyModuleDef VGUArcType_moduledef = {
     PyModuleDef_HEAD_INIT,
     "OpenVG.VGUArcType",
     NULL,
     -1,
-    VGU_VGUArcType_functions,
+    NULL,
 };
 #endif
 
@@ -463,9 +396,7 @@ initVGU_VGUArcType(void)
     #if PY_VERSION_HEX >= 0x03000000
     m = PyModule_Create(&VGUArcType_moduledef);
     #else
-    m = Py_InitModule3((char *) "OpenVG.VGUArcType",
-                       VGU_VGUArcType_functions,
-                       NULL);
+    m = Py_InitModule3((char *) "OpenVG.VGUArcType", NULL, NULL);
     #endif
     if (m == NULL) {
         return NULL;
