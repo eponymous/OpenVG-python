@@ -1,0 +1,4 @@
+include *.h
+include *.cc
+include setup.py
+
