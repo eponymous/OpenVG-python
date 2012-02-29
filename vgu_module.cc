@@ -185,7 +185,7 @@ VGU_vguEllipse(PyObject * UNUSED(dummy), PyObject *args, PyObject *kwargs)
         return NULL;
     }
 
-    error = vguEllipse(path, cx, cy, width, height);
+    error = vguEllipse(path->obj, cx, cy, width, height);
 
     if (error) {
         vgu_error(error);
