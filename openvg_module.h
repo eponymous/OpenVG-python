@@ -89,6 +89,8 @@ typedef void* cmpfunc;
 typedef struct {
     PyObject_HEAD
     VGPath obj;
+    unsigned int paint_modes;
+    unsigned int capabilities;
 } PyVGPath;
 
 

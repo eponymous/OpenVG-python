@@ -20,6 +20,54 @@
 
 #include "openvg_module.h"
 
+PyDoc_STRVAR(PyVGPath_paint_modes__doc__,
+".. attribute:: paint_stroke\n"
+"\n"
+"   :type VGPaint: The current paint stroke VGPaint.\n"
+);
+
+static PyObject*
+PyVGPath__get_paint_modes(PyVGPath *self, void * UNUSED(closure))
+{
+    return Py_BuildValue((char *) "N",
+                         PyLong_FromUnsignedLong(self->paint_modes));
+}
+
+static int
+PyVGPath__set_paint_modes(PyVGPath *self, PyObject *value, void * UNUSED(closure))
+{
+    PyObject *py_retval;
+    unsigned int modes;
+
+    py_retval = Py_BuildValue((char *) "(O)", value);
+
+    if (!PyArg_ParseTuple(py_retval, (char *) "I", &modes)) {
+        Py_DECREF(py_retval);
+        return -1;
+    }
+
+    Py_DECREF(py_retval);
+
+    if (modes & (~(VG_STROKE_PATH | VG_FILL_PATH))) {
+        PyErr_SetString(PyExc_TypeError, "VG_ILLEGAL_ARGUMENT_ERROR");
+        return -1;
+    }
+
+    self->paint_modes = modes;
+
+    return 0;
+}
+static PyGetSetDef PyVGPath__getsets[] = {
+    {
+        (char*) "paint_modes", /* attribute name */
+        (getter) PyVGPath__get_paint_modes, /* C function to get the attribute */
+        (setter) PyVGPath__set_paint_modes, /* C function to set the attribute */
+        PyVGPath_paint_modes__doc__, /* optional doc string */
+        NULL /* optional additional data for getter and setter */
+    },
+    { NULL, NULL, NULL, NULL, NULL }
+};
+
 
 static int
 PyVGPath__tp_init(PyVGPath *self, PyObject *args, PyObject *kwargs)
@@ -43,11 +91,40 @@ PyVGPath__tp_init(PyVGPath *self, PyObject *args, PyObject *kwargs)
         return -1;
     }
 
+    self->paint_modes = VG_FILL_PATH | VG_STROKE_PATH;
+    self->capabilities = capabilities;
+
     self->obj = vgCreatePath(pathFormat, datatype, scale, bias,
                              segmentCapacityHint, coordCapacityHint,
                              capabilities);
 
     return check_error() ? -1 : 0;
+}
+
+static PyObject *
+PyVGPath__enter__(PyVGPath *self)
+{
+    if (self->obj == NULL) {
+        PyErr_SetString(PyExc_RuntimeError,
+                        "VGPath.__enter__(): VGPath not properly constructed.");
+        return NULL;
+    }
+
+    Py_INCREF(self);
+    return (PyObject *)self;
+}
+
+static PyObject *
+PyVGPath__exit__(PyVGPath *self, PyObject *args)
+{
+    PyObject *py_retval = PyObject_CallMethod((PyObject *)self, (char *)"draw", NULL);
+
+    if (!py_retval)
+        return NULL;
+
+    Py_DECREF(py_retval);
+
+    Py_RETURN_NONE;
 }
 
 
@@ -263,6 +340,7 @@ OpenVG_vgRemovePathCapabilities(PyVGPath *self, PyObject *args, PyObject *kwargs
     }
 
     vgRemovePathCapabilities(self->obj, capabilities);
+    self->capabilities = vgGetPathCapabilities(self->obj);
 
     if (check_error())
         return NULL;
@@ -272,61 +350,35 @@ OpenVG_vgRemovePathCapabilities(PyVGPath *self, PyObject *args, PyObject *kwargs
 
 
 PyDoc_STRVAR(OpenVG_vgClearPath__doc__,
-".. function:: clear(capabilities)\n"
+".. function:: clear()\n"
 "\n"
 "   Clear command and coordinate data from path.\n"
-"\n"
-"   :arg capabilities: Desired capabilities.\n"
-"   :type capabilities: bitwise OR of VGPathCapabilities.\n"
 "\n"
 "   :error: VG_BAD_HANDLE_ERROR.\n"
 );
 
 static PyObject *
-OpenVG_vgClearPath(PyVGPath *self, PyObject *args, PyObject *kwargs)
+OpenVG_vgClearPath(PyVGPath *self)
 {
-    unsigned int capabilities;
-    const char *keywords[] = {"capabilities", NULL};
-    
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, (char *) "I", (char **) keywords, &capabilities)) {
-        return NULL;
-    }
-
-    if (check_error())
-        return NULL;
-
-    vgClearPath(self->obj, capabilities);
+    vgClearPath(self->obj, self->capabilities);
 
     Py_RETURN_NONE;
 }
 
 
 PyDoc_STRVAR(OpenVG_vgDrawPath__doc__,
-".. function:: draw(paintModes)\n"
+".. function:: draw()\n"
 "\n"
 "   Draw the path on the current drawing surface.\n"
-"\n"
-"   :arg paintModes: Fill and/or stroke the path.\n"
-"   :type paintModes: bitwise OR of VGPaintMode.\n"
 "\n"
 "   :error: VG_BAD_HANDLE_ERROR.\n"
 "   :error: VG_ILLEGAL_ARGUMENT_ERROR.\n"
 );
 
 static PyObject *
-OpenVG_vgDrawPath(PyVGPath *self, PyObject *args, PyObject *kwargs)
+OpenVG_vgDrawPath(PyVGPath *self)
 {
-    VGPaintMode paintModes;
-    const char *keywords[] = {"paintModes", NULL};
-    
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, (char *) "I", (char **) keywords, &paintModes)) {
-        return NULL;
-    }
-
-    if (check_error())
-        return NULL;
-
-    vgDrawPath(self->obj, paintModes);
+    vgDrawPath(self->obj, self->paint_modes);
 
     Py_RETURN_NONE;
 }
@@ -638,12 +690,12 @@ static PyMethodDef PyVGPath_methods[] = {
     },
     {(char *) "clear",
      (PyCFunction) OpenVG_vgClearPath,
-     METH_KEYWORDS|METH_VARARGS,
+     METH_NOARGS,
      OpenVG_vgClearPath__doc__
     },
     {(char *) "draw",
      (PyCFunction) OpenVG_vgDrawPath,
-     METH_KEYWORDS|METH_VARARGS,
+     METH_NOARGS,
      OpenVG_vgDrawPath__doc__
     },
     {(char *) "interpolate",
@@ -675,6 +727,16 @@ static PyMethodDef PyVGPath_methods[] = {
      (PyCFunction) OpenVG_vgPathTransformedBounds,
      METH_NOARGS,
      OpenVG_vgPathTransformedBounds__doc__
+    },
+    {(char *) "__enter__",
+     (PyCFunction) PyVGPath__enter__,
+     METH_NOARGS,
+     NULL
+    },
+    {(char *) "__exit__",
+     (PyCFunction) PyVGPath__exit__,
+     METH_VARARGS,
+     NULL
     },
     {NULL, NULL, 0, NULL}
 };
@@ -776,7 +838,7 @@ PyTypeObject PyVGPath_Type = {
     (iternextfunc)NULL,                           /* tp_iternext */
     (struct PyMethodDef*)PyVGPath_methods,        /* tp_methods */
     (struct PyMemberDef*)0,                       /* tp_members */
-    0,                                            /* tp_getset */
+    PyVGPath__getsets,                            /* tp_getset */
     NULL,                                         /* tp_base */
     NULL,                                         /* tp_dict */
     (descrgetfunc)NULL,                           /* tp_descr_get */
