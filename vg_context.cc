@@ -127,6 +127,7 @@ PyVGContext__tp_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         self = (PyVGContext *)type->tp_alloc(type, 0);
     }
 
+    /* tp_dealloc never gets called */
     Py_XINCREF(self);
 
     return (PyObject*)self;
@@ -157,6 +158,25 @@ PyVGContext__tp_init(PyVGContext *self, PyObject *args, PyObject *kwargs)
         self->dimensions[1] = height;
     }
     return check_error() ? -1 : 0;
+}
+
+static PyObject *
+PyVGContext__enter__(PyVGContext *self)
+{
+    if (self->init == 0) {
+        PyErr_SetString(PyExc_RuntimeError,
+                        "VGContext.__enter__(): VGContext not properly constructed.");
+        return NULL;
+    }
+
+    Py_INCREF(self);
+    return (PyObject *)self;
+}
+
+static PyObject *
+PyVGContext__exit__(PyVGContext *self, PyObject *args)
+{
+    Py_RETURN_NONE;
 }
 
 
@@ -900,6 +920,16 @@ static PyMethodDef PyVGContext_methods[] = {
      METH_KEYWORDS|METH_VARARGS,
      OpenVG_vgWritePixels__doc__
     },
+    {(char *) "__enter__",
+     (PyCFunction) PyVGContext__enter__,
+     METH_NOARGS,
+     NULL
+    },
+    {(char *) "__exit__",
+     (PyCFunction) PyVGContext__exit__,
+     METH_VARARGS,
+     NULL
+    },
     {NULL, NULL, 0, NULL}
 };
 
@@ -1089,9 +1119,11 @@ static PyMappingMethods PyVGContext__tp_as_mapping = {
 };
 
 static void
-PyVGContext__tp_dealloc(PyObject *self)
+PyVGContext__tp_dealloc(PyVGContext *self)
 {
-    vgDestroyContextSH();
+    if (self->init)
+        vgDestroyContextSH();
+
     Py_TYPE(self)->tp_free(self);
 
 }
