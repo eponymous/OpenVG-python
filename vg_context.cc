@@ -657,9 +657,9 @@ OpenVG_vgFlush(PyVGContext *self, PyObject *args, PyObject *kwargs)
 
 
 PyDoc_STRVAR(OpenVG_vgGetPixels__doc__,
-".. function:: copy_pixels(dst, dx, dy, sx, sy, width, height)\n"
+".. function:: get_pixels(dst, dx, dy, sx, sy, width, height)\n"
 "\n"
-"   Copy pixels from one region of the drawing surface to another.\n"
+"   Copy pixels from a region of the drawing surface to 'dst'.\n"
 "\n"
 "   :arg dst: Destination image.\n"
 "   :type dst: VGImage\n"
